@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 
 
 @dataclass
@@ -20,13 +20,7 @@ class InfoMessage:
     calories: float
 
     def get_message(self) -> str:
-        return self.MESSAGE.format(
-            training_type=self.training_type,
-            duration=self.duration,
-            distance=self.distance,
-            speed=self.speed,
-            calories=self.calories
-        )
+        return self.MESSAGE.format(**asdict(self))
 
 
 @dataclass
@@ -56,7 +50,7 @@ class Training:
         """Вернуть информационное сообщение о выполненной тренировке."""
 
         return InfoMessage(
-            self.__class__.__name__,
+            type(self).__name__,
             self.duration, self.get_distance(),
             self.get_mean_speed(),
             self.get_spent_calories()
@@ -71,9 +65,14 @@ class Running(Training):
 
     def get_spent_calories(self) -> float:
         return (
-            (self.CALORIES_MEAN_SPEED_MULTIPLIER * self.get_mean_speed()
-             + self.CALORIES_MEAN_SPEED_SHIFT) * self.weight / self.M_IN_KM
-            * (self.duration * self.MIN_IN_HOUR)
+            (
+                self.CALORIES_MEAN_SPEED_MULTIPLIER * self.get_mean_speed()
+                + self.CALORIES_MEAN_SPEED_SHIFT
+            )
+            * self.weight / self.M_IN_KM
+            * (
+                self.duration * self.MIN_IN_HOUR
+            )
         )
 
 
@@ -82,18 +81,26 @@ class SportsWalking(Training):
     """Тренировка: спортивная ходьба."""
     SPENT_CALORIES_MULTIPIER_1 = 0.035
     SPENT_CALORIES_MULTIPIER_2 = 0.029
-    KM_HOURS_TO_M_SECONDS = 0.278
+    KM_IN_M = 0.278
     CM_IN_M = 100
 
     height: float
 
     def get_spent_calories(self) -> float:
         return (
-            (self.SPENT_CALORIES_MULTIPIER_1 * self.weight
-             + ((self.get_mean_speed() * self.KM_HOURS_TO_M_SECONDS)**2
-                / (self.height / self.CM_IN_M))
-                * self.SPENT_CALORIES_MULTIPIER_2 * self.weight)
-            * (self.duration * self.MIN_IN_HOUR)
+            (
+                self.SPENT_CALORIES_MULTIPIER_1 * self.weight
+                + (
+                    (
+                        self.get_mean_speed() * self.KM_IN_M
+                    )**2 / (
+                        self.height / self.CM_IN_M
+                    )
+                )
+                * self.SPENT_CALORIES_MULTIPIER_2 * self.weight
+            ) * (
+                self.duration * self.MIN_IN_HOUR
+            )
         )
 
 
@@ -101,11 +108,11 @@ class SportsWalking(Training):
 class Swimming(Training):
     """Тренировка: плавание."""
     LEN_STEP = 1.38
-    SWM_SPENT_CALORIES_MULTIPIER_1 = 1.1
-    SWM_SPENT_CALORIES_MULTIPIER_2 = 2
+    SWIMMING_COEFF = 1.1
+    SWIMMING_COEFF_2 = 2
 
     length_pool: float
-    count_pool: float
+    count_pool: int
 
     def get_mean_speed(self) -> float:
         return ((self.length_pool * self.count_pool)
@@ -113,8 +120,10 @@ class Swimming(Training):
 
     def get_spent_calories(self) -> float:
         return (
-            (self.get_mean_speed() + self.SWM_SPENT_CALORIES_MULTIPIER_1)
-            * self.SWM_SPENT_CALORIES_MULTIPIER_2
+            (
+                self.get_mean_speed() + self.SWIMMING_COEFF
+            )
+            * self.SWIMMING_COEFF_2
             * self.weight * self.duration
         )
 
@@ -124,18 +133,30 @@ TRAINING_TYPES = {'RUN': Running,
                   'SWM': Swimming
                   }
 
+CHECK_VALUES = {'RUN': (Running, 3),
+                'WLK': (SportsWalking, 4),
+                'SWM': (Swimming, 5)
+                }
+
+type_error = 'Required data type "string", not {type}.'
+value_error = '{workout} - Unsupported type of training.'
+attribute_error = 'Invalid number of arguments. Required {quantity}'
+
 
 def read_package(workout_type: str, data: list[int]) -> Training:
     """Прочитать данные полученные от датчиков."""
 
-    if workout_type not in TRAINING_TYPES:
-        raise TypeError('Unsupported training type.')
-    elif workout_type == 'SWM' and len(data) != 5:
-        raise ValueError('Invalid number of arguments')
-    elif workout_type == 'RUN' and len(data) != 3:
-        raise ValueError('Invalid number of arguments')
-    elif workout_type == 'WLK' and len(data) != 4:
-        raise ValueError('Invalid number of arguments')
+    if not isinstance(workout_type, str):
+        raise TypeError(type_error.format(type=type(workout_type)))
+    elif workout_type not in TRAINING_TYPES:
+        raise ValueError(value_error.format(workout=workout_type))
+    elif CHECK_VALUES[workout_type] != (
+        TRAINING_TYPES[workout_type], len(data)
+    ):
+        raise ValueError(
+            attribute_error.format(quantity=CHECK_VALUES[workout_type][1])
+        )
+
     return TRAINING_TYPES[workout_type](*data)
 
 
