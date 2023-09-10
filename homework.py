@@ -1,7 +1,7 @@
-import dataclasses as dtc
+from dataclasses import dataclass, asdict, fields
 
 
-@dtc.dataclass
+@dataclass
 class InfoMessage:
     """Информационное сообщение о тренировке."""
 
@@ -20,10 +20,10 @@ class InfoMessage:
     calories: float
 
     def get_message(self) -> str:
-        return self.MESSAGE.format(**dtc.asdict(self))
+        return self.MESSAGE.format(**asdict(self))
 
 
-@dtc.dataclass
+@dataclass
 class Training:
     """Базовый класс тренировки."""
     M_IN_KM = 1000
@@ -57,7 +57,7 @@ class Training:
         )
 
 
-@dtc.dataclass
+@dataclass
 class Running(Training):
     """Тренировка: бег."""
     CALORIES_MEAN_SPEED_MULTIPLIER = 18
@@ -74,15 +74,15 @@ class Running(Training):
         )
 
 
-@dtc.dataclass
+@dataclass
 class SportsWalking(Training):
     """Тренировка: спортивная ходьба."""
     SPENT_CALORIES_MULTIPIER_1 = 0.035
     SPENT_CALORIES_MULTIPIER_2 = 0.029
-    M_IN_KM = 1000
-    SEC_IN_HOUR = 3600
     CM_IN_M = 100
-    MEAN_SPEED_MULTIPLAIER = round(M_IN_KM / SEC_IN_HOUR, 3)
+    MEAN_SPEED_MULTIPLAIER = round(
+        Training.M_IN_KM / Training.MIN_IN_HOUR**2, 3
+    )
 
     height: float
 
@@ -99,7 +99,7 @@ class SportsWalking(Training):
         )
 
 
-@dtc.dataclass
+@dataclass
 class Swimming(Training):
     """Тренировка: плавание."""
     LEN_STEP = 1.38
@@ -123,10 +123,11 @@ class Swimming(Training):
         )
 
 
-TRAINING_TYPES = {'RUN': Running,
-                  'WLK': SportsWalking,
-                  'SWM': Swimming
-                  }
+TRAINING_TYPES = {
+    'RUN': Running,
+    'WLK': SportsWalking,
+    'SWM': Swimming
+}
 
 
 VALUE_ERROR = '{workout} - Unsupported type of training.'
@@ -141,18 +142,17 @@ def read_package(workout_type: str, data: list[int]) -> Training:
 
     if workout_type not in TRAINING_TYPES:
         raise ValueError(VALUE_ERROR.format(workout=workout_type))
-    TRAINING = TRAINING_TYPES[workout_type]
-    ARGUMENTS = dtc.fields(TRAINING)
-    if len(ARGUMENTS) != len(data):
+    training = TRAINING_TYPES[workout_type]
+    if len(fields(training)) != len(data):
         raise ValueError(
             ATTRIBUTE_ERROR.format(
-                training=TRAINING.__name__,
+                training=workout_type,
                 wrong_quantity=len(data),
-                quantity=len(ARGUMENTS)
+                quantity=len(fields(training))
             )
         )
 
-    return TRAINING(*data)
+    return training(*data)
 
 
 def main(training: Training) -> None:
