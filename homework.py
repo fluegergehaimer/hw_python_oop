@@ -1,7 +1,7 @@
-from dataclasses import dataclass, asdict
+import dataclasses as dtc
 
 
-@dataclass
+@dtc.dataclass
 class InfoMessage:
     """Информационное сообщение о тренировке."""
 
@@ -20,10 +20,10 @@ class InfoMessage:
     calories: float
 
     def get_message(self) -> str:
-        return self.MESSAGE.format(**asdict(self))
+        return self.MESSAGE.format(**dtc.asdict(self))
 
 
-@dataclass
+@dtc.dataclass
 class Training:
     """Базовый класс тренировки."""
     M_IN_KM = 1000
@@ -57,7 +57,7 @@ class Training:
         )
 
 
-@dataclass
+@dtc.dataclass
 class Running(Training):
     """Тренировка: бег."""
     CALORIES_MEAN_SPEED_MULTIPLIER = 18
@@ -70,19 +70,19 @@ class Running(Training):
                 + self.CALORIES_MEAN_SPEED_SHIFT
             )
             * self.weight / self.M_IN_KM
-            * (
-                self.duration * self.MIN_IN_HOUR
-            )
+            * self.duration * self.MIN_IN_HOUR
         )
 
 
-@dataclass
+@dtc.dataclass
 class SportsWalking(Training):
     """Тренировка: спортивная ходьба."""
     SPENT_CALORIES_MULTIPIER_1 = 0.035
     SPENT_CALORIES_MULTIPIER_2 = 0.029
-    KM_IN_M = 0.278
+    M_IN_KM = 1000
+    SEC_IN_HOUR = 3600
     CM_IN_M = 100
+    MEAN_SPEED_MULTIPLAIER = round(M_IN_KM / SEC_IN_HOUR, 3)
 
     height: float
 
@@ -91,25 +91,20 @@ class SportsWalking(Training):
             (
                 self.SPENT_CALORIES_MULTIPIER_1 * self.weight
                 + (
-                    (
-                        self.get_mean_speed() * self.KM_IN_M
-                    )**2 / (
-                        self.height / self.CM_IN_M
-                    )
+                    (self.get_mean_speed() * self.MEAN_SPEED_MULTIPLAIER)**2
+                    / (self.height / self.CM_IN_M)
                 )
                 * self.SPENT_CALORIES_MULTIPIER_2 * self.weight
-            ) * (
-                self.duration * self.MIN_IN_HOUR
-            )
+            ) * (self.duration * self.MIN_IN_HOUR)
         )
 
 
-@dataclass
+@dtc.dataclass
 class Swimming(Training):
     """Тренировка: плавание."""
     LEN_STEP = 1.38
-    SWIMMING_COEFF = 1.1
-    SWIMMING_COEFF_2 = 2
+    CALORIES_MEAN_SPEED_SHIFT = 1.1
+    CALORIES_MEAN_SPEED_MULTIPLIER = 2
 
     length_pool: float
     count_pool: int
@@ -121,9 +116,9 @@ class Swimming(Training):
     def get_spent_calories(self) -> float:
         return (
             (
-                self.get_mean_speed() + self.SWIMMING_COEFF
+                self.get_mean_speed() + self.CALORIES_MEAN_SPEED_SHIFT
             )
-            * self.SWIMMING_COEFF_2
+            * self.CALORIES_MEAN_SPEED_MULTIPLIER
             * self.weight * self.duration
         )
 
@@ -133,31 +128,31 @@ TRAINING_TYPES = {'RUN': Running,
                   'SWM': Swimming
                   }
 
-CHECK_VALUES = {'RUN': (Running, 3),
-                'WLK': (SportsWalking, 4),
-                'SWM': (Swimming, 5)
-                }
 
-type_error = 'Required data type "string", not {type}.'
-value_error = '{workout} - Unsupported type of training.'
-attribute_error = 'Invalid number of arguments. Required {quantity}'
+VALUE_ERROR = '{workout} - Unsupported type of training.'
+ATTRIBUTE_ERROR = (
+    '{training} takes {wrong_quantity} argument(s).'
+    'Required {quantity}.'
+)
 
 
 def read_package(workout_type: str, data: list[int]) -> Training:
     """Прочитать данные полученные от датчиков."""
 
-    if not isinstance(workout_type, str):
-        raise TypeError(type_error.format(type=type(workout_type)))
-    elif workout_type not in TRAINING_TYPES:
-        raise ValueError(value_error.format(workout=workout_type))
-    elif CHECK_VALUES[workout_type] != (
-        TRAINING_TYPES[workout_type], len(data)
-    ):
+    if workout_type not in TRAINING_TYPES:
+        raise ValueError(VALUE_ERROR.format(workout=workout_type))
+    TRAINING = TRAINING_TYPES[workout_type]
+    ARGUMENTS = dtc.fields(TRAINING)
+    if len(ARGUMENTS) != len(data):
         raise ValueError(
-            attribute_error.format(quantity=CHECK_VALUES[workout_type][1])
+            ATTRIBUTE_ERROR.format(
+                training=TRAINING.__name__,
+                wrong_quantity=len(data),
+                quantity=len(ARGUMENTS)
+            )
         )
 
-    return TRAINING_TYPES[workout_type](*data)
+    return TRAINING(*data)
 
 
 def main(training: Training) -> None:
